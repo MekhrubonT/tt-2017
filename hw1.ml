@@ -78,7 +78,6 @@ let rec back x pos bal = match bal with
 		
 let rec parse_application1 x = match (String.get x (String.length x - 1)) with
 	')' -> 
-	print_string(x);
 	let last_space = back x (String.length x - 2) 1 in
 		App (lambda_of_string (beg_of_string x last_space), lambda_of_string (en x last_space)) 
 	| _ -> 
@@ -89,7 +88,6 @@ and lambda_of_string x = match (String.get x 0) with
 	'\\' -> let ind = String.index x '.' in		
 			Abs (beg_of_string x ind, lambda_of_string (en x (ind + 1)))
 	| '(' -> 
-			print_string(x ^ "\n");
 			let pos = clos x 1 1 in
 			if pos = (String.length x) then 
 				lambda_of_string (String.trim (String.sub x 1 ((String.length x) - 2)))
@@ -100,4 +98,4 @@ and lambda_of_string x = match (String.get x 0) with
 			_ -> Var x;;
 
 print_string(string_of_lambda(App(Var "x", App (Var "y", Var "z"))) ^ "\n");
-print_string(string_of_lambda(lambda_of_string("(\\x.\\y.(x (a b)) 	x y) z asd")))
+print_string(string_of_lambda(lambda_of_string("((\\x   .    \\y .(x (a b)) 	x y) z asd)")))

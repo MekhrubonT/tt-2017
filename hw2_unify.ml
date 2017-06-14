@@ -65,13 +65,19 @@ let rec transform3 ls = match ls with
 			else raise NoSolution
 	| hd::tail -> hd::(transform3 tail);;
 
+exception Error;;
+	
+let matcher x = match x with
+	(Var a, y) -> (a, y)
+	| _ -> raise Error;;
+	
 let rec transform4 ls fs sn = match ls with
 	[] -> if sn = [] then fs else 
-		let fss = List.map (fun (Var q, rig) -> (q, rig)) fs in
-		solve (List.map (fun (a, b) -> (substitute_term fss a, substitute_term fss b)) sn)
+			let fss = List.map matcher fs in
+			solve (List.map (fun (a, b) -> (substitute_term fss a, substitute_term fss b)) sn)
 	| (Var a, Fun (name, fargs))::tail -> if List.exists (fun term -> equals (Var a) term) fargs then raise NoSolution 
-	else transform4 tail ((Var a, Fun (name, fargs))::fs) sn	
-	| hd::tail -> transform4 tail fs (hd::sn);;
-	
-let rec solve x = (transform4 (transform3 (transform2 (transform1 x))) [] []);;
-let rec solve_system x = try Some (solve x) with None;;
+						else transform4 tail ((Var a, Fun (name, fargs))::fs) sn
+	| hd::tail -> transform4 tail fs (hd::sn)
+
+and solve x = (transform4 (transform3 (transform2 (transform1 x))) [][]);;
+let rec solve_system x = None;;
