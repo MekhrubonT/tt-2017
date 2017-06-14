@@ -54,16 +54,17 @@ let rec merge_sort x = match x with
 					merge (merge_sort left) (merge_sort right);;					
 let rec string_of_lambda x = match x with
 	Var v -> "(" ^ v ^ ")"
-	| Abs (v, y) -> "(\\" ^ v ^ "." ^ (string_of_lambda y) ^ ")"
+	| Abs (v, y) -> "(" ^ "\\" ^ v ^ "." ^ (string_of_lambda y) ^ ")"
 	| App (l, r) -> (string_of_lambda l) ^ " " ^ (string_of_lambda r);;
 
 let beg_of_string x ind = String.trim (String.sub x 0 ind);;
 let en x ind = String.trim (String.sub x ind ((String.length x) - ind));;
 	
 let rec lambda_of_string x = match (String.get x 0) with
-	'\\' -> let ind = String.index x '.' in
+	'\\' -> let ind = String.index x '.' in		
 			Abs (beg_of_string x ind, lambda_of_string (en x (ind + 1)))
-	| '(' -> lambda_of_string (String.trim (String.sub x 1 ((String.length x) - 1)))
+	| '(' ->
+			lambda_of_string (String.trim (String.sub x 1 ((String.length x) - 2)))
 	| _ -> try let ind = String.index x ' ' in
 				App (lambda_of_string (beg_of_string x ind), lambda_of_string (en x (ind + 1)))
 									with 
