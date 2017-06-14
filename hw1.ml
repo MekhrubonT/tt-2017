@@ -74,13 +74,23 @@ let rec back x pos bal = match bal with
 		| ')' -> back x (pos - 1) (bal + 1)
 		| _ -> back x (pos - 1) bal;;
 
-		
+let rec get_lambda_pos x pos bal = match bal with
+	0 -> match (String.get x pos) with
+		"\\" -> pos - 1
+		| _ -> get_lambda_pos x pos + 1 bal
+	| _ -> match (String.get x pos) with 
+		'(' -> get_lambda_pos x (pos - 1) (bal - 1)
+		| ')' -> get_lambda_pos x (pos - 1) (bal + 1)
+		| _ -> get_lambda_pos x (pos - 1) bal;;
 		
 let rec parse_application1 x = match (String.get x (String.length x - 1)) with
 	')' -> 
 	let last_space = back x (String.length x - 2) 1 in
 		App (lambda_of_string (beg_of_string x last_space), lambda_of_string (en x last_space)) 
 	| _ -> 
+	try let pos = get_lambda_pos x in 
+		App (lambda_of_string (beg_of_string x pos), lambda_of_string (en x pos))
+		with 
 	let last_space = String.rindex x ' ' in 	
 		App (lambda_of_string (beg_of_string x last_space), lambda_of_string (en x last_space))
 	
@@ -98,4 +108,5 @@ and lambda_of_string x = match (String.get x 0) with
 			_ -> Var x;;
 
 print_string(string_of_lambda(App(Var "x", App (Var "y", Var "z"))) ^ "\n");
-print_string(string_of_lambda(lambda_of_string("((\\x   .    \\y .(x (a b)) 	x y) z asd)")))
+print_string(string_of_lambda(lambda_of_string("((\\x   .    \\y.(x (a b)) 	x y) z asd)")) ^ "\n");
+print_string(string_of_lambda(lambda_of_string("a \\x. y")))
