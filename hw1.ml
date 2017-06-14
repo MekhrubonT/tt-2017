@@ -53,19 +53,51 @@ let rec merge_sort x = match x with
 	| head::tail -> let (left, right) = split x in
 					merge (merge_sort left) (merge_sort right);;					
 let rec string_of_lambda x = match x with
-	Var v -> "(" ^ v ^ ")"
+	Var v -> v 
 	| Abs (v, y) -> "(" ^ "\\" ^ v ^ "." ^ (string_of_lambda y) ^ ")"
-	| App (l, r) -> (string_of_lambda l) ^ " " ^ (string_of_lambda r);;
+	| App (l, r) -> "(" ^ (string_of_lambda l) ^ ") (" ^ (string_of_lambda r) ^ ")";;
 
 let beg_of_string x ind = String.trim (String.sub x 0 ind);;
 let en x ind = String.trim (String.sub x ind ((String.length x) - ind));;
+
+
+let rec clos x pos bal = match bal with
+	0 -> pos
+	| _ -> match (String.get x pos) with 
+		'(' -> clos x (pos + 1) (bal + 1)
+		| ')' -> clos x (pos + 1) (bal - 1)
+		| _ -> clos x (pos + 1) bal;;
+let rec back x pos bal = match bal with
+	0 -> pos
+	| _ -> match (String.get x pos) with 
+		'(' -> back x (pos - 1) (bal - 1)
+		| ')' -> back x (pos - 1) (bal + 1)
+		| _ -> back x (pos - 1) bal;;
+
+		
+		
+let rec parse_application1 x = match (String.get x (String.length x - 1)) with
+	')' -> 
+	print_string(x);
+	let last_space = back x (String.length x - 2) 1 in
+		App (lambda_of_string (beg_of_string x last_space), lambda_of_string (en x last_space)) 
+	| _ -> 
+	let last_space = String.rindex x ' ' in 	
+		App (lambda_of_string (beg_of_string x last_space), lambda_of_string (en x last_space))
 	
-let rec lambda_of_string x = match (String.get x 0) with
+and lambda_of_string x = match (String.get x 0) with
 	'\\' -> let ind = String.index x '.' in		
 			Abs (beg_of_string x ind, lambda_of_string (en x (ind + 1)))
-	| '(' ->
-			lambda_of_string (String.trim (String.sub x 1 ((String.length x) - 2)))
+	| '(' -> 
+			print_string(x ^ "\n");
+			let pos = clos x 1 1 in
+			if pos = (String.length x) then 
+				lambda_of_string (String.trim (String.sub x 1 ((String.length x) - 2)))
+			else 
+				parse_application1(x)
 	| _ -> try let ind = String.index x ' ' in
-				App (lambda_of_string (beg_of_string x ind), lambda_of_string (en x (ind + 1)))
-									with 
+				parse_application1(x) with 
 			_ -> Var x;;
+
+print_string(string_of_lambda(App(Var "x", App (Var "y", Var "z"))) ^ "\n");
+print_string(string_of_lambda(lambda_of_string("(\\x.\\y.(x (a b)) 	x y) z asd")))
