@@ -70,8 +70,19 @@ exception Error;;
 let matcher x = match x with
 	(Var a, y) -> (a, y)
 	| _ -> raise Error;;
+
+let rec substterm prev nw term = match term with 
+	Var a -> if a = prev then Var nw else Var a
+	| Fun (name, data) -> Fun (name, List.map (fun t1 -> substterm prev nw t1) data);;
 	
-let rec transform4 ls fs sn = match ls with
+let rec subst prev nw ls = List.map (fun (t1, t2) -> (substterm prev nw t1, substterm prev nw t2)) ls;;
+
+	
+let rec find_varvar cur pref = match cur with 
+	[] -> raise Error
+	| (Var a, Var b)::tail -> (Var a, Var b)::(solve (subst a b (List.append pref tail)))
+	| hd::tail -> find_varvar tail (hd::pref)
+and transform4 ls fs sn = match ls with
 	[] -> if sn = [] then fs else 
 			let fss = List.map matcher fs in
 			solve (List.map (fun (a, b) -> (substitute_term fss a, substitute_term fss b)) sn)
@@ -79,5 +90,39 @@ let rec transform4 ls fs sn = match ls with
 						else transform4 tail ((Var a, Fun (name, fargs))::fs) sn
 	| hd::tail -> transform4 tail fs (hd::sn)
 
-and solve x = (transform4 (transform3 (transform2 (transform1 x))) [][]);;
-let rec solve_system x = None;;
+and solve x = let cur_state = (transform3 (transform2 (transform1 x))) in
+				try find_varvar cur_state [] with _ -> transform4 cur_state [] [];;
+				
+let rec make_subst sbs term = match term with 
+	Var a -> (try let (l, r) = List.find (fun (lh, rh) -> equals lh (Var a)) sbs in 
+					make_subst sbs r
+					with _ -> Var a)
+	| Fun (name, terms) -> Fun(name, List.map (make_subst sbs) terms);;
+
+let zamyk ls = List.map (fun (l, r) -> (l, make_subst ls r)) ls;;
+				
+let solve_system equations = try Some (List.map matcher (zamyk (solve equations))) with _ -> None;;
+
+
+
+let rec print_term term = match term with 
+	Var a -> print_string (a^" ")
+	| Fun(name, ls) -> print_string (name ^ "(");
+						List.iter print_term ls; 
+						print_string ") ";;
+let isys1 = [Fun("f",[Var "y"; Fun("h",[Var "x"; Var "y"])]), Fun("f",[Fun("g",[Var "a"; Var "b"]); Fun("h", [Var "x"; Var "x"])]); Fun("h",[Var "x"; Var "y"]), Fun("h", [Var "a"; Var "a"])];;
+let my_test = [(Var "a", Var "b"); (Var "a", Var "c"); (Var "b", Fun ("f", [Var "x"]))];;
+
+let at4 = Fun("f",[Var "x"]);;
+let at8 = Fun("f",[Var "x"; Var "y"]);;
+
+let sys0 = [(Var "a", Var "b"); (Var "a", Var "c"); (Var "b", Var "d")];;
+
+List.iter (fun (lhs, rhs) -> print_term(lhs); print_string ("="); print_term rhs; print_string "\n") sys0;;
+print_string "\n";;
+						
+match solve_system sys0 with 
+	None -> print_string "none"
+	| Some ls -> 
+		
+		List.iter (fun (name, term) -> print_string (name^"="); print_term term; print_string "\n") ls;;

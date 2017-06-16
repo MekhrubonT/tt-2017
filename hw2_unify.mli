@@ -11,4 +11,3 @@ val check_solution: (string * algebraic_term) list -> (algebraic_term * algebrai
 
 (* Решить систему; если решения нет -- вернуть None *)
 val solve_system: (algebraic_term * algebraic_term) list -> (string * algebraic_term) list option
-
