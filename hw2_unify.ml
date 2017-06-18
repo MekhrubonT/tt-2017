@@ -117,7 +117,7 @@ let at4 = Fun("f",[Var "x"]);;
 let at8 = Fun("f",[Var "x"; Var "y"]);;
 
 let sys0 = [(Var "a", Var "b"); (Var "a", Var "c"); (Var "b", Var "d")];;
-
+		
 List.iter (fun (lhs, rhs) -> print_term(lhs); print_string ("="); print_term rhs; print_string "\n") sys0;;
 print_string "\n";;
 						

@@ -1,11 +1,11 @@
 open Hw1
 
+(* Вернуть список имён свободных переменных *)
+val free_vars: lambda -> string list
+
 (* Проверить свободу для подстановки. Параметры:
    что подставляем, где подставляем, вместо чего подставляем *)
 val free_to_subst: lambda -> lambda -> string -> bool
-
-(* Вернуть список имён свободных переменных *)
-val free_vars: lambda -> string list
 
 (* Проверить, находится ли лямбда-выражение в нормальной форме *)
 val is_normal_form: lambda -> bool

@@ -54,61 +54,51 @@ let rec merge_sort x = match x with
 					merge (merge_sort left) (merge_sort right);;					
 let rec string_of_lambda x = match x with
 	Var v -> v 
-	| Abs (v, y) -> "(" ^ "\\" ^ v ^ "." ^ (string_of_lambda y) ^ ")"
+	| Abs (v, y) -> "" ^ "\\" ^ v ^ "." ^ (string_of_lambda y) ^ ""
 	| App (l, r) -> "(" ^ (string_of_lambda l) ^ ") (" ^ (string_of_lambda r) ^ ")";;
 
 let beg_of_string x ind = String.trim (String.sub x 0 ind);;
 let en x ind = String.trim (String.sub x ind ((String.length x) - ind));;
 
+let rec find_pos x bal pos = match x.[pos] with 
+	' ' -> if bal = 0 then pos else find_pos x bal (pos - 1)
+	| ')' -> find_pos x (bal + 1) (pos - 1)
+	| '(' -> if bal = 1 then pos else find_pos x (bal - 1) (pos - 1)
+	| _ -> find_pos x bal (pos - 1);;
 
-let rec clos x pos bal = match bal with
-	0 -> pos
-	| _ -> match (String.get x pos) with 
-		'(' -> clos x (pos + 1) (bal + 1)
-		| ')' -> clos x (pos + 1) (bal - 1)
-		| _ -> clos x (pos + 1) bal;;
-let rec back x pos bal = match bal with
-	0 -> pos
-	| _ -> match (String.get x pos) with 
-		'(' -> back x (pos - 1) (bal - 1)
-		| ')' -> back x (pos - 1) (bal + 1)
-		| _ -> back x (pos - 1) bal;;
-
-let rec get_lambda_pos x pos bal = match bal with
-	0 -> match (x.[pos]) with
-		'\\' -> pos - 1
-		| '(' -> get_lambda_pos x (pos + 1) (bal - 1)
-		| ')' -> get_lambda_pos x (pos + 1) (bal + 1)
-		| _ -> get_lambda_pos x (pos + 1) bal
-	| _ -> 
-		match (x.[pos]) with 
-		'(' -> get_lambda_pos x (pos + 1) (bal - 1)
-		| ')' -> get_lambda_pos x (pos + 1) (bal + 1)
-		| _ -> get_lambda_pos x (pos + 1) bal;;
-		
-let rec parse_application1 x = match (String.get x (String.length x - 1)) with
-	')' -> 
-	let last_space = back x (String.length x - 2) 1 in
-		App (lambda_of_string (beg_of_string x last_space), lambda_of_string (en x last_space)) 
-	| _ ->  try let lam_pos = get_lambda_pos x 0 0 in
-				App (lambda_of_string (beg_of_string x lam_pos), lambda_of_string (en x lam_pos))
-			with _ -> 
-			let last_space = String.rindex x ' ' in 	
-				App (lambda_of_string (beg_of_string x last_space), lambda_of_string (en x last_space))
+let rec get_lambda_pos x pos bal = match (bal, x.[pos]) with
+	(0, '\\') -> pos - 1
+	| (_, '(') -> get_lambda_pos x (pos + 1) (bal - 1)
+	| (_, ')') -> get_lambda_pos x (pos + 1) (bal + 1)
+	| (_, _) -> get_lambda_pos x (pos + 1) bal;;
 	
-and lambda_of_string x = match (String.get x 0) with
-	'\\' -> let ind = String.index x '.' in		
-			Abs (beg_of_string x ind, lambda_of_string (en x (ind + 1)))
-	| '(' -> 
-			let pos = clos x 1 1 in
-			if pos = (String.length x) then 
-				lambda_of_string (String.trim (String.sub x 1 ((String.length x) - 2)))
-			else 
-				parse_application1(x)
-	| _ -> try let ind = String.index x ' ' in
-				parse_application1(x) with 
-			_ -> Var x;;
+let rec parse_application x = let pos = find_pos x 0 ((String.length x) - 1) in 
+								if pos = 0 then lambda_of_string_helper (String.sub x 1 ((String.length x) - 2))
+								else 
+			try let lam_pos = get_lambda_pos x 0 0 in
+				
+				App (lambda_of_string_helper (beg_of_string x lam_pos), 
+						lambda_of_string_helper (en x lam_pos))
+			with _ -> 
+								App (lambda_of_string_helper (beg_of_string x pos),
+									lambda_of_string_helper (en x pos))
 
-print_string(string_of_lambda(App(Var "x", App (Var "y", Var "z"))) ^ "\n");
-print_string(string_of_lambda(lambda_of_string("((\\x   .    \\y.(x (a b)) 	x y) z asd)")) ^ "\n");
-print_string(string_of_lambda(lambda_of_string("a \\x. y a")))
+	
+and lambda_of_string_helper x = match (String.get x 0) with
+	'\\' -> let ind = String.index x '.' in		
+			Abs (String.trim (String.sub x 1 (ind - 1)), lambda_of_string_helper (en x (ind + 1)))
+	| _ -> if (String.contains x '(') || (String.contains x ' ') then	
+				parse_application x
+			else 
+				Var x;;
+
+let lambda_of_string x = lambda_of_string_helper (String.trim x);;
+				
+let print_lambda x = print_string ((string_of_lambda x)^"\n");;
+
+let t2 = lambda_of_string "(\\a.a a)(\\a.a)";;
+print_lambda t2;;
+print_string(string_of_lambda(App(Var "x", App (Var "y", Var "z"))) ^ "\n");;
+print_string(string_of_lambda(lambda_of_string("((\\x   .    \\y.(x (a b)) 	x y) z asd)")) ^ "\n");;
+print_string(string_of_lambda(lambda_of_string("a \\x. y a")));;
+print_string "\n\n\n\n";
