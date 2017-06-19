@@ -74,6 +74,22 @@ let func x =
 
 List.iter func [l1];;
 
+
+
+print_string "\n\n\n\nW\n";;
+
+let rec hmt_to_string hm = 
+        match hm with 
+                HM_Elem v -> v
+                | HM_Arrow (lhs, rhs) -> "("^(hmt_to_string lhs)^"->"^(hmt_to_string rhs)^")"
+				| HM_ForAll (var, rhs) -> "V "^var^"."^(hmt_to_string rhs);;
+
+let rec hmv_to_string hm = 
+        match hm with 
+                HM_Var v -> v
+                | HM_Abs (var, t) -> "\\"^var^"."^(hmv_to_string t)
+				| HM_App (lhs, rhs) -> "("^(hmv_to_string lhs)^")"^"("^(hmv_to_string rhs)^")"
+				| HM_Let (var, lhs, rhs) -> "let " ^ var ^ "=" ^ (hmv_to_string lhs) ^ " in "^ (hmv_to_string rhs);;
 			
 			
 exception NoTypeExists;;
@@ -102,10 +118,17 @@ let apply_subst_to_type tp subst = rename tp subst SET.empty;;
 let apply_subst_to_context s1 context = 
 	MAP.map (fun tp -> apply_subst_to_type tp s1) context;;
 
+let print_substs s = MAP.iter (fun k v -> print_string(k^" to "^(hmt_to_string v)^"\n"	)) s;;
+	
 (* Substitutions composition *)
 let subst_comp s1 s2 = 
+(*print_string "printing subst_comp\n";*)
+	(*print_substs s1;*)
+	(*print_substs s2;*)
 	let temp = MAP.map (fun tp -> apply_subst_to_type tp s1) s2 in 
-	MAP.fold (fun k v mp -> if MAP.mem k mp then mp else MAP.add k v mp) s1 temp;;
+	let res = MAP.fold (fun k v mp -> if MAP.mem k mp then mp else MAP.add k v mp) s1 temp in
+	(*print_substs res; *)
+	res;;
 	
 let rec free_vars_lmb_helper l blocked = match l with
 	HM_Var var -> if (SET.mem var blocked) = true then SET.empty else SET.singleton var
@@ -145,26 +168,42 @@ let rec alg_to_hm alg = match alg with
 	| Hw2_unify.Fun ("forall", (Hw2_unify.Var var)::s::[]) -> HM_ForAll (var, alg_to_hm s)
 	| _ -> failwith "shouldn't be such algebraic term";;
 
+let print_type tp = print_string ((hmt_to_string tp) ^"\n");;
 	
-let rec algorithm_w_impl lmb context = match lmb with 
+let rec print_term term = match term with 
+Hw2_unify.Var a -> print_string (a^" ")
+| Hw2_unify.Fun(name, ls) -> print_string (name ^ "(");
+					List.iter print_term ls; 
+					print_string ") ";;
+
+	
+let rec algorithm_w_impl lmb context = 
+(*	print_string ("impl\t"^(hmv_to_string lmb)^"\n");*)
+	match lmb with 
 	HM_Var a -> let tp = MAP.find a context in 
 						(MAP.empty, crt_and_rename_vars tp MAP.empty)
 	| HM_Abs (var, er) -> let e = HM_Elem (gen()) in
 							let t = MAP.add var e context in
 							let (s, tp) = algorithm_w_impl er t in
-							(s, HM_Arrow (MAP.find var context, tp))
+						(*	print_type tp;*)
+							(s, HM_Arrow (MAP.find var t, tp))
 	| HM_App (lhs, rhs) -> let (s1, t1) = algorithm_w_impl lhs context in		
 							let (s2, t2) = algorithm_w_impl rhs (apply_subst_to_context s1 context) in 
+(*							print_string "HM_App\n";
+							print_type t1;
+							print_type t2;*)
 							let nw = HM_Elem (gen()) in 
 							(match (Hw2_unify.solve_system 
 									[(hm_to_alg (apply_subst_to_type t1 s2), 
 									hm_to_alg (HM_Arrow (t2, nw)))]) with 
 								None -> raise NoTypeExists
-								| Some x -> let xmap = List.fold_left 
-									(fun mp q -> mp) MAP.empty x in
-									let s = subst_comp xmap (subst_comp s1 s2) in 
-									(s, apply_subst_to_type nw s)
-									)
+								| Some x -> 
+(*									List.iter (fun (name, term) -> print_string (name^"="); print_term term; print_string "\n") x;*)
+											let xmap = List.fold_left 
+												(fun mp (k, v) -> MAP.add k (alg_to_hm v) mp) MAP.empty x in
+											let s = subst_comp xmap (subst_comp s1 s2) in 
+											(s, apply_subst_to_type nw s)
+							)
 									
 	| HM_Let (var, e1, e2) -> 
 							let (s1, t1) = algorithm_w_impl e1 context in							
@@ -172,10 +211,38 @@ let rec algorithm_w_impl lmb context = match lmb with
 							let nw_cont_fin = (MAP.add var (zamyk nw_cont t1) nw_cont) in 
 							let (s2, t2) = algorithm_w_impl e2 nw_cont_fin in
 							(subst_comp s2 s1, t2);;
+				
 
-let algorithm_w lmb = let fv_lm = free_vars_lmb lmb in
+				
+let algorithm_w lmb = 
+			(*print_string ("test\n"^(hmv_to_string lmb)^"\n");*)
+			let fv_lm = free_vars_lmb lmb in
 					  let context = SET.fold (fun var mp -> MAP.add var (HM_Elem (gen())) mp) fv_lm MAP.empty in
+					  MAP.iter (fun k v -> print_string (k^":"^(hmt_to_string v)	^"\n")) context;
 						try let (s, tp) = algorithm_w_impl lmb context in 
-							Some (MAP.bindings s, tp)
+							Some (MAP.bindings s, apply_subst_to_type tp s)
 						with _ -> None;;
 
+let a = HM_Var "a";;
+let x = HM_Var "x";;
+let y = HM_Var "y";;
+let z = HM_Var "z";;
+
+let b = HM_Abs("y", HM_Abs("z", HM_App (x, HM_App(y, z))));;
+let c = HM_App (x, z);;
+(*\x.x*)
+let d = HM_Abs("x", x);;
+(*\x.\y.x*)
+let e = HM_Abs("x", HM_Abs("y", x));;
+
+(*\x.\y.\z.xz(yz)*)
+let f = HM_Abs("x", HM_Abs("y", HM_Abs("z", HM_App(HM_App(x, z), HM_App(y, z)))));;
+
+let test = f in
+print_string ("test\n"^(hmv_to_string test)^"\n");
+match algorithm_w test with 
+	None -> print_string "NONE\n\n"
+	| Some (ls, tp) -> 
+		print_string "Ok\n";
+		List.iter (fun (var, tp) -> print_string (var^":"^(hmt_to_string tp)^"\n")) ls;
+		print_string (hmt_to_string tp);;
