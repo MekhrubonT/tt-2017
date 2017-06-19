@@ -201,7 +201,7 @@ let rec algorithm_w_impl lmb context =
 (*									List.iter (fun (name, term) -> print_string (name^"="); print_term term; print_string "\n") x;*)
 											let xmap = List.fold_left 
 												(fun mp (k, v) -> MAP.add k (alg_to_hm v) mp) MAP.empty x in
-											let s = subst_comp xmap (subst_comp s1 s2) in 
+											let s = subst_comp xmap (subst_comp s2 s1) in 
 											(s, apply_subst_to_type nw s)
 							)
 									
@@ -238,7 +238,28 @@ let e = HM_Abs("x", HM_Abs("y", x));;
 (*\x.\y.\z.xz(yz)*)
 let f = HM_Abs("x", HM_Abs("y", HM_Abs("z", HM_App(HM_App(x, z), HM_App(y, z)))));;
 
-let test = f in
+let id = HM_Var "id";;
+(* let id = \\x.x in \\f.\\x.id (id (id x)) *)
+let t1t = HM_Let ("id", HM_Abs("x", x), HM_Abs("f", HM_Abs("x", HM_App(id, HM_App(id, HM_App(id, x))))));;
+
+let t2t = "let id = \\x.x in \\f.\\x.id f (id (id x))";; 
+let t3f = "let id = \\x.x in \\f.\\x.id f (id x (id x))";; 
+(* let id = \\t.t in \\f.\\x.(id f) (id x) *)
+let t = HM_Var "t";;
+let f = HM_Var "f";;
+let t4t = HM_Let ("id", HM_Abs("t", t), HM_Abs("f", HM_Abs("x", HM_App(HM_App(id, f), HM_App(id, x)))));;
+
+let f = HM_Var "f";;
+let t5t = HM_Abs("f", HM_Abs("x", HM_App(f, HM_App(f, x))));;
+
+let t6t = "let id = \\t.t in (id f) (id x)";; 
+
+let a = HM_Var "a";; let b = HM_Var "b";;
+let pow = HM_Abs("a", HM_Abs("b", HM_App (b, a)));;
+
+
+
+let test = t4t in
 print_string ("test\n"^(hmv_to_string test)^"\n");
 match algorithm_w test with 
 	None -> print_string "NONE\n\n"
