@@ -96,9 +96,12 @@ let lambda_of_string x = lambda_of_string_helper (String.trim x);;
 				
 let print_lambda x = print_string ((string_of_lambda x)^"\n");;
 
-let t2 = lambda_of_string "(\\a.a a)(\\a.a)";;
-print_lambda t2;;
-print_string(string_of_lambda(App(Var "x", App (Var "y", Var "z"))) ^ "\n");;
-print_string(string_of_lambda(lambda_of_string("((\\x   .    \\y.(x (a b)) 	x y) z asd)")) ^ "\n");;
-print_string(string_of_lambda(lambda_of_string("a \\x. y a")));;
-print_string "\n\n\n\n";
+if false then 
+	let t2 = lambda_of_string "(\\a.a a)(\\a.a)" in
+	print_lambda t2;
+	print_string(string_of_lambda(App(Var "x", App (Var "y", Var "z"))) ^ "\n");
+	print_string(string_of_lambda(lambda_of_string("((\\x   .    \\y.(x (a b)) 	x y) z asd)")) ^ "\n");
+	print_string(string_of_lambda(lambda_of_string("a \\x. y a"))^"\n");
+	print_string(string_of_lambda(lambda_of_string("\\x. \\a. x (x a)"))^"\n");
+	print_string(string_of_lambda(lambda_of_string("\\x. x \\x. x"))^"\n");
+	print_string "\n\n\n\n";;

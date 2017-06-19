@@ -30,34 +30,29 @@ let rec equals t1 t2 = match (t1, t2) with
 	| (Fun (a, la), Fun (b, lb)) -> a = b && check_to_lists equals la lb
 	| _ -> false;;
 
-	
-let rec get_subst subst_list var = match subst_list with 
-	[] -> Var var
-	| (name, s)::tl -> if name = var then s else get_subst tl var;;
-	
-let rec substitute_term sol term = match term with 
-	Var a -> get_subst sol a
-	| Fun (name, ls) -> Fun (name, List.map (substitute_term sol) ls);;
-	
+		
 let rec check_equation_solution sol fs sn = match (fs, sn) with
 	(Fun (nl, lil), Fun(nr, lir)) -> nl = nr && check_to_lists (check_equation_solution sol) lil lir
-	| (a, b) -> equals (substitute_term sol a) (substitute_term sol b);;
+	| (a, b) -> equals (apply_substitution sol a) (apply_substitution sol b);;
 		
 let rec check_solution x y = match y with 
 	[] -> true 
 	| (fs, sn)::tl -> check_equation_solution x fs sn && check_solution x tl;;
-
+	
+(* Swap if lhs = fun and rhs = var *)
 let rec transform1 x = match x with 
 	[] -> []
 	| (Fun (name, ls), Var a)::tail -> (Var a, Fun (name, ls))::(transform1 tail)
 	| hd::tail -> hd::(transform1 tail);;
 
+(* Remove if lhs=rhs *)
 let rec transform2 ls = match ls with
 	[] -> []
 	| (fs, sn)::tail -> if equals fs sn then transform2 tail else (fs, sn)::(transform2 tail);;
 
 exception NoSolution;;
 	
+(* Simplify fun = fun *)
 let rec transform3 ls = match ls with
 	[] -> []
 	| (Fun (ln, ll), Fun (rn, rl))::tail -> if ln = rn 
@@ -70,38 +65,34 @@ exception Error;;
 let matcher x = match x with
 	(Var a, y) -> (a, y)
 	| _ -> raise Error;;
-
-let rec substterm prev nw term = match term with 
-	Var a -> if a = prev then Var nw else Var a
-	| Fun (name, data) -> Fun (name, List.map (fun t1 -> substterm prev nw t1) data);;
 	
-let rec subst prev nw ls = List.map (fun (t1, t2) -> (substterm prev nw t1, substterm prev nw t2)) ls;;
+(* Checks if alg term contains var *)
+let rec contains_var var alg = match alg with
+	Var v -> var = v
+	| Fun (name, ls) -> List.exists (contains_var var) ls;;
+	
 
 	
-let rec find_varvar cur pref = match cur with 
-	[] -> raise Error
-	| (Var a, Var b)::tail -> (Var a, Var b)::(solve (subst a b (List.append pref tail)))
-	| hd::tail -> find_varvar tail (hd::pref)
-and transform4 ls fs sn = match ls with
-	[] -> if sn = [] then fs else 
-			let fss = List.map matcher fs in
-			solve (List.map (fun (a, b) -> (substitute_term fss a, substitute_term fss b)) sn)
-	| (Var a, Fun (name, fargs))::tail -> if List.exists (fun term -> equals (Var a) term) fargs then raise NoSolution 
-						else transform4 tail ((Var a, Fun (name, fargs))::fs) sn
-	| hd::tail -> transform4 tail fs (hd::sn)
-
-and solve x = let cur_state = (transform3 (transform2 (transform1 x))) in
-				try find_varvar cur_state [] with _ -> transform4 cur_state [] [];;
-				
-let rec make_subst sbs term = match term with 
-	Var a -> (try let (l, r) = List.find (fun (lh, rh) -> equals lh (Var a)) sbs in 
-					make_subst sbs r
-					with _ -> Var a)
-	| Fun (name, terms) -> Fun(name, List.map (make_subst sbs) terms);;
-
-let zamyk ls = List.map (fun (l, r) -> (l, make_subst ls r)) ls;;
-				
-let solve_system equations = try Some (List.map matcher (zamyk (solve equations))) with _ -> None;;
+let rec transform4 ls prefix = match ls with
+	[] -> List.map matcher prefix 
+	| (Var var, r)::tail -> 
+			(match r with 
+					Fun (name, ls) -> 
+							if List.exists (equals (Var var)) ls then raise NoSolution
+					| _ -> ());
+			let oth = List.append prefix tail in 
+			if List.exists (fun (a, b) -> (contains_var var a) || (contains_var var b)) oth then
+				solve ((Var var, r)::
+				(List.map (fun(a, b) -> (apply_substitution [var, r] a,
+										apply_substitution [var, r] b)) oth))
+			else 
+				transform4 tail ((Var var, r)::prefix)			
+					
+	| hd::tail -> transform4 tail (hd::prefix)	
+	
+and solve x = transform4 (transform3 (transform2 (transform1 x))) [];;
+								
+let solve_system equations = try Some (solve equations) with _ -> None;;
 
 
 
@@ -117,12 +108,17 @@ let at4 = Fun("f",[Var "x"]);;
 let at8 = Fun("f",[Var "x"; Var "y"]);;
 
 let sys0 = [(Var "a", Var "b"); (Var "a", Var "c"); (Var "b", Var "d")];;
+
+
+let sys1 = [(Var "m1", Fun("ar", [Var "m2"; Var "m3"]));
+				(Var "m1", Fun("ar", [Var "m3"; Var "m4"]))];;
+
+let system = sys0;;
 		
-List.iter (fun (lhs, rhs) -> print_term(lhs); print_string ("="); print_term rhs; print_string "\n") sys0;;
+List.iter (fun (lhs, rhs) -> print_term(lhs); print_string ("="); print_term rhs; print_string "\n") system;;
 print_string "\n";;
-						
-match solve_system sys0 with 
+
+match solve_system system with 
 	None -> print_string "none"
 	| Some ls -> 
-		
 		List.iter (fun (name, term) -> print_string (name^"="); print_term term; print_string "\n") ls;;
