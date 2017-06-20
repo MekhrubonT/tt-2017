@@ -39,35 +39,12 @@ let rec check_solution x y = match y with
 	[] -> true 
 	| (fs, sn)::tl -> check_equation_solution x fs sn && check_solution x tl;;
 	
-(* Swap if lhs = fun and rhs = var *)
-let rec transform1 x = match x with 
-	[] -> []
-	| (Fun (name, ls), Var a)::tail -> (Var a, Fun (name, ls))::(transform1 tail)
-	| hd::tail -> hd::(transform1 tail);;
-
-(* Remove if lhs=rhs *)
-let rec transform2 ls = match ls with
-	[] -> []
-	| (fs, sn)::tail -> if equals fs sn then transform2 tail else (fs, sn)::(transform2 tail);;
 
 exception NoSolution;;
 	
-(* Simplify fun = fun *)
-let rec transform3 ls = match ls with
-	[] -> []
-	| (Fun (ln, ll), Fun (rn, rl))::tail -> 
-		if ln = rn 
-		then transform3 (List.append (transform2 (transform1 (List.map2 (fun a b -> (a, b)) ll rl))) tail)
-			else 
-				raise NoSolution
-	| hd::tail -> hd::(transform3 tail);;
 
 exception Error;;
-	
-let matcher x = match x with
-	(Var a, y) -> (a, y)
-	| _ -> raise Error;;
-	
+		
 (* Checks if alg term contains var *)
 let rec contains_var var alg = match alg with
 	Var v -> var = v
@@ -80,36 +57,61 @@ let rec print_term term = match term with
 						List.iter print_term ls; 
 						print_string ") ";;
 
+let apply_substitution_to_sol sub sol = 
+	List.map (fun(a, b) -> ((*print_string a;
+						print_string "\n";
+							print_term b;
+						print_string "\n";
+						print_term (apply_substitution sub b);
+						print_string "\n";
+						print_string "\n";*)
+	(a, apply_substitution sub b))) sol;;
 						
-let rec transform4 ls prefix = match ls with
-	[] -> List.map matcher prefix 
-	| (Var var, r)::tail -> 
-			(match r with 
-					Fun (name, ls) -> 
-							if List.exists (equals (Var var)) ls then raise NoSolution
-					| _ -> ());
-			let oth = List.append prefix tail in 
-			if List.exists (fun (a, b) -> (contains_var var a) || (contains_var var b)) oth then
-				solve ((Var var, r)::
-				(List.map (fun(a, b) -> (apply_substitution [var, r] a,
-										apply_substitution [var, r] b)) oth))
-			else 
-				transform4 tail ((Var var, r)::prefix)			
-					
-	| hd::tail -> transform4 tail (hd::prefix)	
-	
-and solve x = let q = (transform3 (transform2 (transform1 x))) in 
+let rec zamykanie ls sol = match ls with 
+	[] -> sol
+	| (var, d)::tail -> 
+(*		print_string ("var:"^var^"=");
+		print_term d;
+		print_string "\n";*)
+				
+	zamykanie (apply_substitution_to_sol ((var, d)::sol) tail)
+					((var, d)::sol);;
+							
+
+let rec solve ls prefix = match ls with
+	[] -> zamykanie (prefix) [] 
+	| (Fun (ln, ll), Fun (rn, rl))::tail -> 
+		if ln = rn then 
+			solve (List.append (List.map2 (fun a b -> (a, b)) ll rl) tail) prefix
+		else
+			raise NoSolution
+	| (Fun (n, l), Var v)::tail -> solve ((Var v, Fun (n, l))::tail) prefix 
+	| (Var var, r)::tail -> if equals (Var var) r then solve tail prefix 
+						else if contains_var var r then raise NoSolution
+						else solve 
+							(List.map (fun(a, b) -> (apply_substitution [var, r] a,
+									apply_substitution [var, r] b)) tail)
+							((var, r)::prefix);;
+
+let solve_system equations = try Some (solve equations []) with _ -> None;;
+
+let checker system = 
+	List.iter (fun (lhs, rhs) -> print_term(lhs); print_string ("="); print_term rhs; print_string "\n") system;
+	print_string "\n";
+
+	match solve_system system with 
+	None -> print_string "none\n";
+	| Some ls -> 
+		print_string "ok\n";
+		List.iter (fun (name, term) -> print_string (name^"="); print_term term; print_string "\n") ls;
+		print_string "----------\n";;
+
+
 		
-				transform4 q []
-				;;
-								
-let solve_system equations = try Some (solve equations) with _ -> None;;
-
-
 
 let isys1 = [Fun("f",[Var "y"; Fun("h",[Var "x"; Var "y"])]), Fun("f",[Fun("g",[Var "a"; Var "b"]); Fun("h", [Var "x"; Var "x"])]); Fun("h",[Var "x"; Var "y"]), Fun("h", [Var "a"; Var "a"])];;
-let my_test = [(Var "a", Var "b"); (Var "a", Var "c"); (Var "b", Fun ("f", [Var "x"]))];;
 
+let my_test = [(Var "a", Var "b"); (Var "a", Var "c"); (Var "b", Fun ("f", [Var "x"]))];;
 let at4 = Fun("f",[Var "x"]);;
 let at8 = Fun("f",[Var "x"; Var "y"]);;
 
@@ -124,11 +126,15 @@ let sys1 = [(Var "m1", Fun("ar", [Var "m2"; Var "m3"]));
 
 let system = sys0;;
 		
-List.iter (fun (lhs, rhs) -> print_term(lhs); print_string ("="); print_term rhs; print_string "\n") system;;
-print_string "\n";;
 
-match solve_system system with 
-	None -> print_string "none\n";
-	| Some ls -> 
-		print_string "ok\n";
-		List.iter (fun (name, term) -> print_string (name^"="); print_term term; print_string "\n") ls;;
+let sys0 = [(Var "a", Var "b"); (Var "x", Var "y")];;
+let sys1 = [(Fun("f",[Var "a"]), Fun("f",[Fun("g",[Fun("h",[Var "b"])])])); (Var "a", Var "b")];;
+let sys2 = [(Fun("f",[Var "a"]), Var "b")];;
+let sys3 = [Fun("f",[Var "a"; Var "b"]), Fun("f",[Var "x"; Var "y"])];;
+let sys4 = [Fun("f",[Var "a"; Var "b"]), Fun("g",[Var "x"; Var "y"])];;
+let sys5 = [Fun("f",[Var "a"; Var "b"]), Fun("f",[Var "x"; Var "y"; Var "z"])];;
+let sys6 = [(Var "a", Fun("f", [Var "a"]))];;
+let sys7 = [(Var "a", Var "a")];;
+List.iter checker [sys0;sys1;sys2;sys3;sys4;sys5;sys6;sys7];;
+checker sys7;;
+

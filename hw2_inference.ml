@@ -10,6 +10,102 @@ module MAP = Map.Make(String);;
 module SET = Set.Make(String);;
 
 
+
+
+(* string of hindley milner type *)
+let rec string_of_hmt hmt = 
+		match hmt with
+                        HM_Elem v -> v
+                        | HM_Arrow(hmt1, hmt2) -> "(" ^ (string_of_hmt hmt1) ^ " -> " ^ (string_of_hmt hmt2) ^ ")" 
+                        | HM_ForAll(v, hmt) -> "∀" ^ v ^ "." ^ (string_of_hmt hmt);;
+
+
+(* string of hindley milner lambda ie term *)
+let rec string_of_hml hml =
+	match hml with 
+		HM_Var v -> v
+		| HM_Abs(v, hml) -> ("\\" ^ v ^ "." ^ "(" ^ (string_of_hml hml) ^ ")")
+		| HM_App(hml1, hml2) -> ("(" ^ (string_of_hml hml1) ^ " " ^ (string_of_hml hml2) ^ ")")
+		| HM_Let(v, hml1, hml2) -> ("let " ^ v ^ " = (" ^ (string_of_hml hml1) ^ ") in (" ^ (string_of_hml hml2)) ^ ")";;
+
+		(* Function is almost fully copypasted from Hw1 module,
+	where we were parsing primitive lambdas from string.
+	To get rid of copying the one should probably
+	use generic typic or templates and I'm 
+	not ready to do it yet 
+
+	This function is implemented only because of 
+	enthusiasm and just for fun. It is not 
+	homework. As a result it is prohibited to
+	start variable names with "i" or with "l" in
+	strings passed to this function (for easier "let .. in .." parsing)
+	
+	Consider yourself warned *)
+
+let hml_of_string s =
+	let s = s ^ ";" in
+	let pos = ref 0 in (*pos points to first not processed element*)
+	let get () = s.[!pos] in (*returns next not processed element*)
+	let next () = if !pos < String.length s - 1 then pos := !pos + 1 in (*increment pos*)
+	let eat x = if get () = x then next () else failwith "Incorrect input string" in
+	let is_end () = if (get ()) = ';' then true else false in		
+		
+	(* Function reads the name from current position till next space or dot *)
+	(* unit -> string *)
+	let parse_name_str () =
+		let rec impl s =
+			if (get ()) <> ' ' && (get ()) <> '.' && (get ()) <> ')' && not (is_end ())  
+				then let c = get() in next(); impl (s ^ String.make 1 c)
+				else s in
+		impl "" in	
+
+	(* unit -> hml *)
+	let parse_name () = 
+		HM_Var(parse_name_str ()) in
+
+	(* unit -> hml *)
+	let rec parse_hml () =
+		let ans = 	
+			match (get ()) with 
+				'\\' -> parse_abs ()
+				| '(' -> (eat '('; let ret = parse_hml () in eat ')'; ret)
+				| 'l' -> parse_let () (* todo fix for vars starting with l *)
+				| _ ->  parse_name () in
+		if_is_app ans 
+
+	and parse_let () =
+		eat 'l'; eat 'e'; eat 't'; eat ' ';
+		let v = parse_name_str () in
+		eat ' '; eat '='; eat ' ';
+		let hml1 = parse_hml () in
+		eat 'i'; eat 'n'; eat ' '; (* space before in is read by app *)
+		let hml2 = parse_hml () in
+		HM_Let(v, hml1, hml2) 
+
+	(* unit -> lambda *)
+	and parse_abs () = 
+		eat '\\';
+		let name = parse_name_str () in
+		eat '.';
+		HM_Abs(name, parse_hml ())
+
+	(* function checks if expression continues and makes app left associative *)
+	(* lambda -> lambda *)	
+	and if_is_app prev = 
+		if (is_end () || s.[!pos] = ')' || s.[!pos] = 'i') then prev else 
+			(eat ' '; 
+			(* if we encounter 'i' after space, than it is beginning of "in", no app here *)
+			if (get ()) = 'i' then prev else
+				if_is_app (HM_App(prev, 
+					match (get ()) with 
+						'\\' -> parse_abs () 
+						| '(' -> (eat '('; let ans = parse_hml () in	eat ')'; ans)
+						| 'l' -> parse_let () 
+						| _ -> parse_name ()))) in
+
+	parse_hml ();; 
+
+		
 print_string "\n\n\n\nHW4\n";;
 
 let type_counter = ref 0;;
@@ -86,9 +182,9 @@ let rec hmt_to_string hm =
 
 let rec hmv_to_string hm = 
         match hm with 
-                HM_Var v -> v
+                HM_Var v -> v	
                 | HM_Abs (var, t) -> "\\"^var^"."^(hmv_to_string t)
-				| HM_App (lhs, rhs) -> "("^(hmv_to_string lhs)^")"^"("^(hmv_to_string rhs)^")"
+				| HM_App (lhs, rhs) -> "("^(hmv_to_string lhs)^") ("^(hmv_to_string rhs)^")"
 				| HM_Let (var, lhs, rhs) -> "let " ^ var ^ "=" ^ (hmv_to_string lhs) ^ " in "^ (hmv_to_string rhs);;
 			
 			
@@ -186,7 +282,8 @@ let rec algorithm_w_impl lmb context =
 							let t = MAP.add var e context in
 							let (s, tp) = algorithm_w_impl er t in
 						(*	print_type tp;*)
-							(s, HM_Arrow (MAP.find var t, tp))
+							(s, HM_Arrow (
+							apply_subst_to_type (MAP.find var t) s, tp))
 	| HM_App (lhs, rhs) -> let (s1, t1) = algorithm_w_impl lhs context in		
 							let (s2, t2) = algorithm_w_impl rhs (apply_subst_to_context s1 context) in 
 (*							print_string "HM_App\n";
@@ -206,7 +303,13 @@ let rec algorithm_w_impl lmb context =
 							)
 									
 	| HM_Let (var, e1, e2) -> 
+	print_string "here\n";
 							let (s1, t1) = algorithm_w_impl e1 context in							
+							
+							print_string(string_of_hml e1);
+							print_type t1;
+MAP.iter (fun k v -> print_string (k^":"^(hmt_to_string v)	^"\n")) s1;						
+print_string "\n\n";
 							let nw_cont = apply_subst_to_context s1 context in 
 							let nw_cont_fin = (MAP.add var (zamyk nw_cont t1) nw_cont) in 
 							let (s2, t2) = algorithm_w_impl e2 nw_cont_fin in
@@ -249,7 +352,6 @@ let t = HM_Var "t";;
 let f = HM_Var "f";;
 let t4t = HM_Let ("id", HM_Abs("t", t), HM_Abs("f", HM_Abs("x", HM_App(HM_App(id, f), HM_App(id, x)))));;
 
-let f = HM_Var "f";;
 let t5t = HM_Abs("f", HM_Abs("x", HM_App(f, HM_App(f, x))));;
 
 let t6t = "let id = \\t.t in (id f) (id x)";; 
@@ -258,12 +360,14 @@ let a = HM_Var "a";; let b = HM_Var "b";;
 let pow = HM_Abs("a", HM_Abs("b", HM_App (b, a)));;
 
 
+let t = hml_of_string("let x = \\f.\\c.f (f c) in x x x x x x")	;;
+let t6t = hml_of_string("let dd = \\f.\\c.f (f c) in dd dd dd dd dd dd");; 
 
-let test = t4t in
+let test = t6t in
 print_string ("test\n"^(hmv_to_string test)^"\n");
 match algorithm_w test with 
 	None -> print_string "NONE\n\n"
 	| Some (ls, tp) -> 
 		print_string "Ok\n";
 		List.iter (fun (var, tp) -> print_string (var^":"^(hmt_to_string tp)^"\n")) ls;
-		print_string (hmt_to_string tp);;
+		print_string ("type" ^ (hmt_to_string tp));;
