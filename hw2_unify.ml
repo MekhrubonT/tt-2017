@@ -55,9 +55,11 @@ exception NoSolution;;
 (* Simplify fun = fun *)
 let rec transform3 ls = match ls with
 	[] -> []
-	| (Fun (ln, ll), Fun (rn, rl))::tail -> if ln = rn 
-		then List.append (transform2 (transform1 (List.map2 (fun a b -> (a, b)) ll rl))) (transform3 tail)
-			else raise NoSolution
+	| (Fun (ln, ll), Fun (rn, rl))::tail -> 
+		if ln = rn 
+		then transform3 (List.append (transform2 (transform1 (List.map2 (fun a b -> (a, b)) ll rl))) tail)
+			else 
+				raise NoSolution
 	| hd::tail -> hd::(transform3 tail);;
 
 exception Error;;
@@ -72,7 +74,13 @@ let rec contains_var var alg = match alg with
 	| Fun (name, ls) -> List.exists (contains_var var) ls;;
 	
 
-	
+let rec print_term term = match term with 
+	Var a -> print_string (a^" ")
+	| Fun(name, ls) -> print_string (name ^ "(");
+						List.iter print_term ls; 
+						print_string ") ";;
+
+						
 let rec transform4 ls prefix = match ls with
 	[] -> List.map matcher prefix 
 	| (Var var, r)::tail -> 
@@ -90,24 +98,25 @@ let rec transform4 ls prefix = match ls with
 					
 	| hd::tail -> transform4 tail (hd::prefix)	
 	
-and solve x = transform4 (transform3 (transform2 (transform1 x))) [];;
+and solve x = let q = (transform3 (transform2 (transform1 x))) in 
+		
+				transform4 q []
+				;;
 								
 let solve_system equations = try Some (solve equations) with _ -> None;;
 
 
 
-let rec print_term term = match term with 
-	Var a -> print_string (a^" ")
-	| Fun(name, ls) -> print_string (name ^ "(");
-						List.iter print_term ls; 
-						print_string ") ";;
 let isys1 = [Fun("f",[Var "y"; Fun("h",[Var "x"; Var "y"])]), Fun("f",[Fun("g",[Var "a"; Var "b"]); Fun("h", [Var "x"; Var "x"])]); Fun("h",[Var "x"; Var "y"]), Fun("h", [Var "a"; Var "a"])];;
 let my_test = [(Var "a", Var "b"); (Var "a", Var "c"); (Var "b", Fun ("f", [Var "x"]))];;
 
 let at4 = Fun("f",[Var "x"]);;
 let at8 = Fun("f",[Var "x"; Var "y"]);;
 
-let sys0 = [(Var "a", Var "b"); (Var "a", Var "c"); (Var "b", Var "d")];;
+let left = Fun("a", [Fun("b", [Var "a"; Var"b"])]);;
+let right = Fun("a", [Fun("b", [Var "q"; Var"b"])]);;
+
+let sys0 = [(left, right)];;
 
 
 let sys1 = [(Var "m1", Fun("ar", [Var "m2"; Var "m3"]));
@@ -119,6 +128,7 @@ List.iter (fun (lhs, rhs) -> print_term(lhs); print_string ("="); print_term rhs
 print_string "\n";;
 
 match solve_system system with 
-	None -> print_string "none"
+	None -> print_string "none\n";
 	| Some ls -> 
+		print_string "ok\n";
 		List.iter (fun (name, term) -> print_string (name^"="); print_term term; print_string "\n") ls;;
