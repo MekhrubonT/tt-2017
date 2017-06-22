@@ -80,14 +80,13 @@ let print_bool x = print_string (if x then "true" else "false");;
 print_string ("l2="^(string_of_lambda l2) ^ "\n");;
 print_bool (is_alpha_equivalent l1 l2);;*)
 
-type lambdaRef = Varr of string | Absr of (string * (lambdaRef ref ref))
-					| Appr of ((lambdaRef ref ref) * (lambdaRef ref ref));;
+type lambdaRef = Varr of string | Absr of (string * (lambdaRef ref))
+					| Appr of ((lambdaRef ref) * (lambdaRef ref));;
 
 let id = ref 0;;
 let gen() =
-		if !id > 1000000000 then id := 0;
-		id := !id+1;
-			"m"^(string_of_int !id);;
+		id := !id + 1;
+			"m" ^ (string_of_int !id);;
 
 let rec rename_vars lmb map = match lmb with 
 	Var var -> if MAP.mem var map then Var (MAP.find var map) else lmb
@@ -105,20 +104,18 @@ let rec normal_beta_reduction_impl lmb = match lmb with
 
 												
 let normal_beta_reduction lmb = normal_beta_reduction_impl (rename_vars lmb MAP.empty);;
-(*List.iter (fun x -> print_lambda x; print_lambda(rename_vars x MAP.empty)) [la; lb; lab; l1; l2; l3; l4];;*)
-
 
 let rec lambda_to_lambdaRef tree = match tree with 
-	Var a -> ref (ref (Varr a))
-	| Abs (var, lmb) -> ref (ref (Absr (var, (lambda_to_lambdaRef lmb))))
-	| App (lhs, rhs) -> ref (ref (Appr (lambda_to_lambdaRef lhs, lambda_to_lambdaRef rhs)));;
+	Var a -> ref (Varr a)
+	| Abs (var, lmb) -> ref (Absr (var, (lambda_to_lambdaRef lmb)))
+	| App (lhs, rhs) -> ref (Appr (lambda_to_lambdaRef lhs, lambda_to_lambdaRef rhs));;
 
-let rec lambdaRef_to_lambda tree = match !(!tree) with 
+let rec lambdaRef_to_lambda tree = match !tree with 
 	Varr a -> Var a
 	| Absr (var, rhs) -> Abs(var, lambdaRef_to_lambda rhs)
 	| Appr (lhs, rhs) -> App(lambdaRef_to_lambda lhs, lambdaRef_to_lambda rhs);;
 	
-let rec substr tree oldvar nwlmb = match !(!tree) with
+let rec substr tree oldvar nwlmb = match !tree with
 	Varr a -> if a = oldvar then tree := !nwlmb
 	| Absr (var, lmb) -> if var <> oldvar then 
 							substr lmb oldvar nwlmb
@@ -128,22 +125,17 @@ let rec substr tree oldvar nwlmb = match !(!tree) with
 let copy var nvar lmbref = 
 	let old = (lambdaRef_to_lambda lmbref) in
 	let temp =  (rename_vars old (MAP.singleton var nvar)) in
-(*	print_string "old and new\n";
-	print_lambda old;
-	print_lambda temp;*)
 	lambda_to_lambdaRef temp;;
 
 let print_lambdaRef xr =  print_lambda (lambdaRef_to_lambda xr);;
 
-exception NoReduction;;
-
 let rec reduce_to_normal_form_impl tree = 		
-	match !(!tree) with 
+	match !tree with 
 		Varr a -> None
 		| Absr (var, rhs) -> reduce_to_normal_form_impl rhs
-		| Appr ({contents = {contents = (Absr(var, lhs))}}, rhs) ->
+		| Appr ({contents = (Absr(var, lhs))}, rhs) ->
 				let nvar = gen() in 
-				!tree := !(!(copy var nvar lhs));
+				tree := !(copy var nvar lhs);
 				substr tree nvar rhs;
 				Some tree
 		| Appr (lhs, rhs) -> 
@@ -154,7 +146,7 @@ let rec reduce_to_normal_form_impl tree =
 
 let rec red xr = 
 	match reduce_to_normal_form_impl xr with
-		None -> xr	
+		None -> xr
 		| Some res -> red xr;;
 
 
@@ -163,10 +155,9 @@ let reduce_to_normal_form x =
 			lambdaRef_to_lambda (red xr);;
 
 
-
 let runtest name lambda_str = 
 	let start = Sys.time() in
-	print_endline ("running "^name);
+	print_endline ("running " ^ name);
 	print_lambda (reduce_to_normal_form (lambda_of_string lambda_str));
 	Printf.printf "Execution time: %fs\n\n" (Sys.time() -. start);;
 
