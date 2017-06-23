@@ -106,7 +106,7 @@ let hml_of_string s =
 	parse_hml ();; 
 
 		
-print_string "\n\n\n\nHW4\n";;
+(*print_string "\n\n\n\nHW4\n";;*)
 
 let type_counter = ref 0;;
 let gen() = type_counter := !type_counter + 1;
@@ -150,10 +150,10 @@ let init_free_vars_types lmb = let fv = Hw1_reduction.free_vars lmb in
 					
 				
 let infer_simp_type lmb = let system, tp = infer_simp_type_helper lmb (init_free_vars_types lmb) in 
-	print_string ("type_t="^(st_to_string (alg_to_simp tp))^"\n");
+	(*print_string ("type_t="^(st_to_string (alg_to_simp tp))^"\n");
 	print_string "system\n";
 	List.iter (fun (a, b) -> print_string ((alg_to_str a)^"="^(alg_to_str b)^"\n")) system;
-	print_string "end\n";
+	print_string "end\n";*)
 							match Hw2_unify.solve_system system with 
 							None -> None
 							| Some ls -> Some (List.map (fun (a, b) -> (a, alg_to_simp b)) ls, 
@@ -168,11 +168,11 @@ let func x =
 				None -> print_string "No type\n"
 				| Some (ls, tp) -> print_string ((st_to_string tp)^"\n");;
 
-List.iter func [l1];;
+(*List.iter func [l1];;*)
 
 
 
-print_string "\n\n\n\nW\n";;
+(*print_string "\n\n\n\nW\n";;*)
 
 let rec hmt_to_string hm = 
         match hm with 
@@ -326,7 +326,7 @@ let algorithm_w lmb =
 							Some (MAP.bindings s, apply_subst_to_type tp s)
 						with _ -> None;;
 
-let a = HM_Var "a";;
+(*let a = HM_Var "a";;
 let x = HM_Var "x";;
 let y = HM_Var "y";;
 let z = HM_Var "z";;
@@ -370,4 +370,4 @@ match algorithm_w test with
 	| Some (ls, tp) -> 
 		print_string "Ok\n";
 		List.iter (fun (var, tp) -> print_string (var^":"^(hmt_to_string tp)^"\n")) ls;
-		print_string ("type" ^ (hmt_to_string tp));;
+		print_string ("type" ^ (hmt_to_string tp));;*)
